@@ -20,7 +20,9 @@ DEFAULT_RATE = float(os.getenv("EXCHANGE_RATE", "3000"))
 TZ = os.getenv("TZ","Europe/Moscow")
 PORT = int(os.getenv("PORT", "8080"))
 
-bot = Bot(BOT_TOKEN, parse_mode="HTML")
+from aiogram.client.default import DefaultBotProperties
+
+bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
 CARTS: dict[int, list[CartItem]] = {}
