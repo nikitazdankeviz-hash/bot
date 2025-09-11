@@ -1,0 +1,10 @@
+[project]
+name = "store-bot"
+
+[services.store-bot]
+startCommand = "python -m bot.main"
+envVars = ["BOT_TOKEN","ADMIN_IDS","EXCHANGE_RATE","TZ","CURRENCY"]
+
+[deploy]
+healthcheckPath = "/"
+restartPolicyType = "ON_FAILURE"

@@ -1,0 +1,23 @@
+services:
+  - type: worker
+    name: store-bot
+    env: python
+    plan: starter
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m bot.main
+    envVars:
+      - key: BOT_TOKEN
+        generateValue: false
+      - key: ADMIN_IDS
+        generateValue: false
+      - key: EXCHANGE_RATE
+        value: "3000"
+      - key: TZ
+        value: "Europe/Moscow"
+      - key: CURRENCY
+        value: "RUB"
+    disk:
+      name: data
+      mountPath: /app
+      sizeGB: 1

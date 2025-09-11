@@ -1,0 +1,35 @@
+{
+  "categories": [
+    {
+      "id": "coins",
+      "title": "Монеты EA FC"
+    },
+    {
+      "id": "services",
+      "title": "Услуги"
+    }
+  ],
+  "products": [
+    {
+      "id": "coins_100k",
+      "category": "coins",
+      "title": "100 000 монет",
+      "price_rub": 150,
+      "active": true
+    },
+    {
+      "id": "coins_500k",
+      "category": "coins",
+      "title": "500 000 монет",
+      "price_rub": 700,
+      "active": true
+    },
+    {
+      "id": "coach_hour",
+      "category": "services",
+      "title": "Тренировка 1 час",
+      "price_rub": 500,
+      "active": true
+    }
+  ]
+}

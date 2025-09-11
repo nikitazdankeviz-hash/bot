@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  store-bot:
+    build: .
+    container_name: store-bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_IDS=${ADMIN_IDS}
+      - EXCHANGE_RATE=${EXCHANGE_RATE:-3000}
+      - TZ=${TZ:-Europe/Moscow}
+      - CURRENCY=${CURRENCY:-RUB}
+    volumes:
+      - ./:/app
+    command: python -m bot.main
