@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio, os, json, datetime as dt, pytz
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F
+from aiogram.client.default import DefaultBotProperties
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -19,8 +20,6 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS","").split(",") if x.strip().i
 DEFAULT_RATE = float(os.getenv("EXCHANGE_RATE", "3000"))
 TZ = os.getenv("TZ","Europe/Moscow")
 PORT = int(os.getenv("PORT", "8080"))
-
-from aiogram.client.default import DefaultBotProperties
 
 bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
@@ -198,7 +197,23 @@ async def run_http():
     await site.start()
 
 async def run_bot():
-    await dp.start_polling(bot)
+    # Ensure no webhook is set; otherwise Telegram forbids getUpdates (polling)
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+    except Exception:
+        pass
+    # Simple retry loop to survive transient 'terminated by other getUpdates request'
+    import asyncio
+    for i in range(10):
+        try:
+            await dp.start_polling(bot)
+            break
+        except Exception as e:
+            if "terminated by other getUpdates request" in str(e):
+                await asyncio.sleep(2 + i)  # backoff
+                continue
+            raise
+
 
 async def main():
     init_db()
