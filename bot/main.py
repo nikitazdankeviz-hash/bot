@@ -1,14 +1,16 @@
 from __future__ import annotations
-import asyncio, os, json, datetime as dt, pytz
+import os, json, asyncio, datetime as dt, pytz
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F
-from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.client.default import DefaultBotProperties
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from aiohttp import web
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from .utils import CartItem, calc_total, human_rub
 from .keyboards import main_menu_kb, categories_kb, products_kb, product_kb, cart_kb, admin_kb
@@ -20,6 +22,9 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS","").split(",") if x.strip().i
 DEFAULT_RATE = float(os.getenv("EXCHANGE_RATE", "3000"))
 TZ = os.getenv("TZ","Europe/Moscow")
 PORT = int(os.getenv("PORT", "8080"))
+WEBHOOK_BASE = os.getenv("WEBHOOK_BASE")  # e.g. https://your.onrender.com
+if not WEBHOOK_BASE:
+    raise RuntimeError("WEBHOOK_BASE env is required (e.g. https://<service>.onrender.com)")
 
 bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
@@ -34,8 +39,8 @@ def load_catalog() -> dict:
 class AddProductState(StatesGroup):
     waiting_json = State()
 
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+def is_admin(uid: int) -> bool:
+    return uid in ADMIN_IDS
 
 @dp.message(Command("start"))
 async def start(m: Message):
@@ -142,29 +147,7 @@ async def admin_actions(c: CallbackQuery, state: FSMContext):
         count = export_orders_csv(fname)
         await c.message.answer(f"Экспортировано строк: {count}. Файл: {fname}")
 
-@dp.message(F.text, F.text.regexp(r"^\d+(?:\.\d+)?$"))
-async def set_rate(m: Message, state: FSMContext):
-    st = await state.get_state()
-    if st == "await_rate":
-        set_setting("exchange_rate", m.text)
-        await m.reply(f"Курс обновлён: {m.text}")
-        await state.clear()
-
-@dp.message(F.text, ~F.text.regexp(r"^/.*"))
-async def set_products(m: Message, state: FSMContext):
-    st = await state.get_state()
-    if st == "waiting_json" and is_admin(m.from_user.id):
-        try:
-            data = json.loads(m.text)
-            path = os.path.join(os.path.dirname(__file__), "data", "products.json")
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            await m.reply("Каталог обновлён.")
-        except Exception as e:
-            await m.reply(f"Ошибка: {e}")
-        finally:
-            await state.clear()
-
+# Scheduler
 def setup_scheduler(loop: asyncio.AbstractEventLoop):
     tz = pytz.timezone(TZ)
     sched = AsyncIOScheduler(timezone=tz)
@@ -177,55 +160,45 @@ def setup_scheduler(loop: asyncio.AbstractEventLoop):
     sched.start()
     return sched
 
-# HTTP server for Render free Web Service
-from aiohttp import web
+# AIOHTTP app + webhook
+async def on_startup(app: web.Application):
+    await bot.delete_webhook(drop_pending_updates=True)
+    webhook_path = f"/tg/{(await bot.get_me()).id}"
+    await bot.set_webhook(url=WEBHOOK_BASE.rstrip('/') + webhook_path, drop_pending_updates=True)
 
-async def make_app():
-    app = web.Application()
-    async def index(request):
-        return web.json_response({"ok": True, "service": "store-bot", "time": dt.datetime.utcnow().isoformat()})
-    async def health(request):
-        return web.Response(text="OK")
-    app.add_routes([web.get("/", index), web.get("/healthz", health)])
-    return app
-
-async def run_http():
-    app = await make_app()
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-
-async def run_bot():
-    # Ensure no webhook is set; otherwise Telegram forbids getUpdates (polling)
+async def on_shutdown(app: web.Application):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception:
         pass
-    # Simple retry loop to survive transient 'terminated by other getUpdates request'
-    import asyncio
-    for i in range(10):
-        try:
-            await dp.start_polling(bot)
-            break
-        except Exception as e:
-            if "terminated by other getUpdates request" in str(e):
-                await asyncio.sleep(2 + i)  # backoff
-                continue
-            raise
 
+async def make_app() -> web.Application:
+    app = web.Application()
+    # health endpoints
+    async def index(request):
+        return web.json_response({"ok": True, "service": "store-bot-webhook"})
+    app.add_routes([web.get("/", index), web.get("/healthz", index)])
+    # webhook handler
+    handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
+    handler.register(app, path=f"/tg/{(await bot.get_me()).id}")
+    setup_application(app, dp, bot=bot)
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+    return app
 
 async def main():
     init_db()
     if get_setting("exchange_rate") is None:
         set_setting("exchange_rate", str(DEFAULT_RATE))
     setup_scheduler(asyncio.get_event_loop())
-    await asyncio.gather(run_http(), run_bot())
+    app = await make_app()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+    # keep running
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    try:
-        import uvloop
-        uvloop.install()
-    except Exception:
-        pass
     asyncio.run(main())

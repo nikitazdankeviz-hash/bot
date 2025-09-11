@@ -1,19 +1,16 @@
-# Store Bot – Render FREE Web Service
+# Store Bot – Webhook mode (Render FREE, no polling conflicts)
 
-Эта версия запускает бота как **Web Service** (бесплатный план Render). Внутри есть маленький HTTP‑сервер для health‑check на `$PORT`.
+Эта версия работает через **webhook** (Telegram шлёт апдейты на ваш URL). Конфликтов `getUpdates` нет.
 
-## Render (Free)
-1) Подключи репозиторий к Render как **Blueprint** — `render.yaml` создаст Web Service.
-2) Задай `BOT_TOKEN` и `ADMIN_IDS` в Environment.
-3) Deploy. Сервис будет слушать `$PORT` и параллельно запускать Telegram‑бота.
+## Шаги на Render
+1. Подключите репозиторий → Blueprint (Web Service).
+2. В Environment задайте:
+   - `BOT_TOKEN` – токен бота
+   - `ADMIN_IDS` – ваш Telegram ID
+   - `WEBHOOK_BASE` – адрес сервиса: `https://<your>.onrender.com`
+3. Deploy. Зайдите на `/` — увидите JSON-статус.
 
-## Локально
-```
-cp .env.example .env
-docker compose up --build
-```
-Открой http://localhost:8080/ — увидишь статус. В Телеграме проверь `/start`.
-
-
-### Примечание по зависимостям (Render)
-Используется облегчённый список зависимостей без `pandas` и `uvloop`, чтобы избежать конфликтов на Free-плане Render.
+## Примечания
+- При старте сервис сам выставляет вебхук `WEBHOOK_BASE + /tg/<bot_id>`.
+- При остановке удаляет вебхук.
+- Для локального теста можно запустить с ngrok и выставить `WEBHOOK_BASE` на публичный https URL.

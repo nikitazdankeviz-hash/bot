@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: store-bot-web
+    name: store-bot-webhook
     env: python
     plan: free
     autoDeploy: true
@@ -10,6 +10,8 @@ services:
       - key: BOT_TOKEN
         generateValue: false
       - key: ADMIN_IDS
+        generateValue: false
+      - key: WEBHOOK_BASE
         generateValue: false
       - key: EXCHANGE_RATE
         value: "3000"
