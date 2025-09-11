@@ -7,6 +7,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from aiohttp import web
 
 from .utils import CartItem, calc_total, human_rub
 from .keyboards import main_menu_kb, categories_kb, products_kb, product_kb, cart_kb, admin_kb
@@ -17,11 +18,11 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS","").split(",") if x.strip().isdigit()]
 DEFAULT_RATE = float(os.getenv("EXCHANGE_RATE", "3000"))
 TZ = os.getenv("TZ","Europe/Moscow")
+PORT = int(os.getenv("PORT", "8080"))
 
 bot = Bot(BOT_TOKEN, parse_mode="HTML")
 dp = Dispatcher()
 
-# simple in-memory state for carts
 CARTS: dict[int, list[CartItem]] = {}
 
 def load_catalog() -> dict:
@@ -111,7 +112,6 @@ async def checkout(c: CallbackQuery):
     )
     CARTS[c.from_user.id] = []
 
-# ---------------- Admin ----------------
 @dp.message(Command("admin"))
 async def admin_menu(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
@@ -164,7 +164,6 @@ async def set_products(m: Message, state: FSMContext):
         finally:
             await state.clear()
 
-# --------------- Scheduler ---------------
 def setup_scheduler(loop: asyncio.AbstractEventLoop):
     tz = pytz.timezone(TZ)
     sched = AsyncIOScheduler(timezone=tz)
@@ -177,12 +176,34 @@ def setup_scheduler(loop: asyncio.AbstractEventLoop):
     sched.start()
     return sched
 
+# HTTP server for Render free Web Service
+from aiohttp import web
+
+async def make_app():
+    app = web.Application()
+    async def index(request):
+        return web.json_response({"ok": True, "service": "store-bot", "time": dt.datetime.utcnow().isoformat()})
+    async def health(request):
+        return web.Response(text="OK")
+    app.add_routes([web.get("/", index), web.get("/healthz", health)])
+    return app
+
+async def run_http():
+    app = await make_app()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+
+async def run_bot():
+    await dp.start_polling(bot)
+
 async def main():
     init_db()
     if get_setting("exchange_rate") is None:
         set_setting("exchange_rate", str(DEFAULT_RATE))
     setup_scheduler(asyncio.get_event_loop())
-    await dp.start_polling(bot)
+    await asyncio.gather(run_http(), run_bot())
 
 if __name__ == "__main__":
     try:

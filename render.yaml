@@ -1,8 +1,8 @@
 services:
-  - type: worker
-    name: store-bot
+  - type: web
+    name: store-bot-web
     env: python
-    plan: starter
+    plan: free
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
     startCommand: python -m bot.main
@@ -17,7 +17,4 @@ services:
         value: "Europe/Moscow"
       - key: CURRENCY
         value: "RUB"
-    disk:
-      name: data
-      mountPath: /app
-      sizeGB: 1
+    healthCheckPath: /

@@ -1,14 +1,15 @@
 version: "3.9"
 services:
-  store-bot:
+  store-bot-web:
     build: .
-    container_name: store-bot
+    container_name: store-bot-web
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - ADMIN_IDS=${ADMIN_IDS}
       - EXCHANGE_RATE=${EXCHANGE_RATE:-3000}
       - TZ=${TZ:-Europe/Moscow}
       - CURRENCY=${CURRENCY:-RUB}
-    volumes:
-      - ./:/app
+      - PORT=8080
+    ports:
+      - "8080:8080"
     command: python -m bot.main

@@ -1,7 +1,7 @@
 [project]
-name = "store-bot"
+name = "store-bot-web"
 
-[services.store-bot]
+[services.store-bot-web]
 startCommand = "python -m bot.main"
 envVars = ["BOT_TOKEN","ADMIN_IDS","EXCHANGE_RATE","TZ","CURRENCY"]
 

@@ -1,28 +1,15 @@
-# Store Bot – Plug & Play (No Payments)
+# Store Bot – Render FREE Web Service
 
-Готовый репозиторий. Ничего копировать не нужно — просто залей архив в GitHub/Render/Railway.
+Эта версия запускает бота как **Web Service** (бесплатный план Render). Внутри есть маленький HTTP‑сервер для health‑check на `$PORT`.
 
-## Вариант A — Render (рекомендуется)
-1. Импортируй этот репозиторий на Render (или загрузь ZIP прямо).
-2. Render сам увидит `render.yaml`. Укажи переменные окружения: `BOT_TOKEN`, `ADMIN_IDS`.
-3. Нажми Deploy. Диск уже подключен (mountPath `/app`) — база и экспорт сохраняются.
+## Render (Free)
+1) Подключи репозиторий к Render как **Blueprint** — `render.yaml` создаст Web Service.
+2) Задай `BOT_TOKEN` и `ADMIN_IDS` в Environment.
+3) Deploy. Сервис будет слушать `$PORT` и параллельно запускать Telegram‑бота.
 
-## Вариант B — Railway
-1. Импортируй в Railway репозиторий (или ZIP).
-2. Railway прочитает `Railway.toml`. Укажи `BOT_TOKEN`, `ADMIN_IDS` в Variables.
-3. Deploy.
-
-## Вариант C — Docker Compose (локально)
-1. Создай `.env` из `.env.example` и заполни токен и админов.
-2. Запусти: `docker compose up --build`
-
-## Что внутри
-- Каталог → корзина → оформление (без оплаты)
-- Динамический курс
-- Админка: курс, каталог JSON, заказы, экспорт CSV
-- Авто-экспорт каждые Пн 09:00 (Europe/Moscow)
-- SQLite хранится рядом: `store.db`, выгрузки — в `exports/`
-
-Команды в чате:
-- `/start` — меню
-- `/admin` — админка (только для ID из `ADMIN_IDS`)
+## Локально
+```
+cp .env.example .env
+docker compose up --build
+```
+Открой http://localhost:8080/ — увидишь статус. В Телеграме проверь `/start`.
